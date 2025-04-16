@@ -1,115 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Word of the Day</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <title>Random Quiz App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
-      font-family: sans-serif;
+      font-family: Arial, sans-serif;
       text-align: center;
       padding: 40px;
-      background-color: #f4f4f4;
+      background-color: #f9f9f9;
+      font-size: 1.2rem;
     }
 
     h1 {
-      font-size: 2.5rem;
       color: #333;
-    }
-
-    #word {
       font-size: 2rem;
-      margin-top: 20px;
-      color: #007acc;
     }
 
-    #definition, #locked {
-      font-size: 1.8rem;
-      margin: 30px auto;
-      max-width: 90%;
-      color: #222;
+    #quiz-container {
+      margin-top: 30px;
     }
 
-    .option {
-      display: block;
-      font-size: 1.6rem;
-      padding: 15px 20px;
-      margin: 10px auto;
-      background: white;
-      border: 2px solid #ccc;
+    .question-box {
+      margin-bottom: 25px;
+      background: #fff;
+      padding: 20px;
       border-radius: 10px;
-      cursor: pointer;
-      max-width: 90%;
+      box-shadow: 0 0 10px #ccc;
+      font-size: 1.2rem;
     }
 
-    .option:hover {
-      background-color: #eef;
+    button {
+      margin-top: 10px;
+      padding: 12px 18px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #007acc;
+      color: white;
+      font-size: 1rem;
+    }
+
+    .option-btn {
+      display: block;
+      margin: 12px auto;
+      width: 80%;
+      font-size: 1rem;
     }
 
     .correct {
-      border-color: green;
-      background-color: #d4ffd4;
+      background-color: #4caf50 !important;
     }
 
-    .incorrect {
-      border-color: red;
-      background-color: #ffd4d4;
+    .wrong {
+      background-color: #f44336 !important;
+    }
+
+    #results {
+      font-size: 1.5rem;
+      margin-top: 30px;
+    }
+
+    select {
+      padding: 8px;
+      font-size: 1rem;
+    }
+
+    @media screen and (max-width: 600px) {
+      body {
+        padding: 20px;
+        font-size: 1.1rem;
+      }
+
+      h1 {
+        font-size: 1.8rem;
+      }
+
+      button, .option-btn {
+        font-size: 1.1rem;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>📚 Word of the Day</h1>
-  <div id="word">Loading...</div>
-  <div id="definition"></div>
-  <div id="options"></div>
-  <div id="locked" style="display: none;">🔒 Come back at 8 AM for the next word!</div>
+  <h1>🧠 Random Quiz</h1>
+  <div>
+    <label for="difficulty">Select Difficulty:</label>
+    <select id="difficulty">
+      <option value="easy">Easy</option>
+      <option value="medium">Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+    <button onclick="startQuiz()">Start Quiz</button>
+  </div>
+
+  <div id="quiz-container"></div>
+  <div id="results"></div>
 
   <script>
-    fetch('/word')
-      .then(res => res.json())
-      .then(data => {
-        if (data.locked) {
-          document.getElementById('locked').style.display = 'block';
-          document.getElementById('word').style.display = 'none';
-        } else if (data.definition) {
-          // Study mode
-          document.getElementById('word').innerText = data.word;
-          document.getElementById('definition').innerText = data.definition;
-        } else if (data.options) {
-          // Quiz mode
-          document.getElementById('word').innerText = data.word;
-          document.getElementById('definition').innerText = 'Pick the correct definition:';
-          const container = document.getElementById('options');
+    let questions = [];
+    let current = 0;
+    let score = 0;
 
-          data.options.forEach((def, i) => {
-            const btn = document.createElement('button');
-            btn.innerText = def;
-            btn.className = 'option';
-            btn.onclick = () => {
-              const correct = def === data.correct;
-              btn.classList.add(correct ? 'correct' : 'incorrect');
-              document.querySelectorAll('.option').forEach(el => el.disabled = true);
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
 
-              // Reveal word sources after guessing
-              const match = data.sources.find(s => s.definition === def);
-              if (match) {
-                const reveal = document.createElement('div');
-                reveal.style.fontSize = '1.2rem';
-                reveal.style.marginTop = '5px';
-                reveal.style.color = '#555';
-                reveal.innerText = `This definition came from the word: ${match.word}`;
-                btn.appendChild(reveal);
-              }
-            };
-            container.appendChild(btn);
-          });
-        }
-      })
-      .catch(err => {
-        document.getElementById('definition').innerText = "⚠️ Something went wrong!";
-        console.error(err);
+    function startQuiz() {
+      current = 0;
+      score = 0;
+      document.getElementById('results').innerHTML = '';
+      const difficulty = document.getElementById('difficulty').value;
+      fetch(`https://opentdb.com/api.php?amount=10&difficulty=${difficulty}&type=multiple`)
+        .then(res => res.json())
+        .then(data => {
+          questions = data.results;
+          showQuestion();
+        });
+    }
+
+    function showQuestion() {
+      const q = questions[current];
+      const container = document.getElementById('quiz-container');
+      container.innerHTML = '';
+
+      const box = document.createElement('div');
+      box.className = 'question-box';
+
+      const qText = document.createElement('div');
+      qText.innerHTML = `<strong>Q${current + 1}:</strong> ${q.question}`;
+      box.appendChild(qText);
+
+      const answers = shuffle([q.correct_answer, ...q.incorrect_answers]);
+      answers.forEach(a => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerHTML = a;
+        btn.onclick = () => checkAnswer(btn, q.correct_answer);
+        box.appendChild(btn);
       });
+
+      container.appendChild(box);
+    }
+
+    function checkAnswer(btn, correct) {
+      const buttons = document.querySelectorAll('.option-btn');
+      buttons.forEach(b => b.disabled = true);
+      if (btn.innerText === correct) {
+        btn.classList.add('correct');
+        score++;
+      } else {
+        btn.classList.add('wrong');
+        buttons.forEach(b => {
+          if (b.innerText === correct) b.classList.add('correct');
+        });
+      }
+
+      setTimeout(() => {
+        current++;
+        if (current < questions.length) {
+          showQuestion();
+        } else {
+          document.getElementById('quiz-container').innerHTML = '';
+          document.getElementById('results').innerHTML = `✅ You scored ${score}/10`;
+        }
+      }, 1500);
+    }
   </script>
 </body>
 </html>
-
